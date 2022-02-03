@@ -85,6 +85,7 @@ async function main() {
   await asyncForEach(traits, async trait => {
     await setNames(trait);
   });
+  await writeConfig();
   await asyncForEach(traits, async trait => {
     await setWeights(trait);
   });
@@ -104,6 +105,7 @@ async function main() {
     writingMetadata.succeed('Exported metadata successfully');
     writingMetadata.clear();
   }
+  await writeConfig();
   if (argv['save-config']) {
     const writingConfig = ora('Saving configuration');
     writingConfig.color = 'yellow';
@@ -215,7 +217,7 @@ async function metadataSettings() {
     {
       type: 'input',
       name: 'metadataName',
-      message: 'What should be the name? (Generated format is NAME#ID)',
+      message: 'What should be the name? (Generated format is NAME #ID)',
     },
     {
       type: 'input',
@@ -442,7 +444,7 @@ function existCombination(contains) {
 
 function generateMetadataObject(id, images) {
   metaData[id] = {
-    name: config.metaData.name + '#' + id,
+    name: config.metaData.name + ' #' + id,
     description: config.metaData.description,
     image: config.imageUrl + id,
     attributes: [],
@@ -467,6 +469,7 @@ async function writeMetadata() {
     for (var key in metaData){
       await writeFile(metadata_output_dir + key, JSON.stringify(metaData[key]));
     }
+    await writeFile(outputPath + 'metadata.json', JSON.stringify(metaData));
   }else
   {
     await writeFile(outputPath + 'metadata.json', JSON.stringify(metaData));
