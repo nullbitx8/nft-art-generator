@@ -10,6 +10,7 @@ const ora = require('ora');
 const inquirer = require('inquirer');
 const fs = require('fs');
 const { readFile, writeFile, readdir } = require("fs").promises;
+const { execSync }  = require('child_process');
 const mergeImages = require('merge-images');
 const { Image, Canvas } = require('canvas');
 const ImageDataURI = require('image-data-uri');
@@ -89,6 +90,7 @@ async function main() {
   await asyncForEach(traits, async trait => {
     await setWeights(trait);
   });
+  await writeConfig();
   const generatingImages = ora('Generating images');
   generatingImages.color = 'yellow';
   generatingImages.start();
@@ -367,6 +369,15 @@ async function generateImages() {
   let images = [];
   let id = 0;
   await generateWeightedTraits();
+  
+  // create output directory if it doesnt exist
+  if (!fs.existsSync(outputPath)) {
+    fs.mkdir(outputPath, err => {
+      console.error(err)
+      process.exit(1)
+    });
+  }
+
   if (config.deleteDuplicates) {
     while (!Object.values(weightedTraits).filter(arr => arr.length == 0).length && noMoreMatches < 20000) {
       let picked = [];
@@ -387,8 +398,25 @@ async function generateImages() {
           remove(weightedTraits[id], picked[i]);
         });
         seen.push(images);
-        const b64 = await mergeImages(images, { Canvas: Canvas, Image: Image });
-        await ImageDataURI.outputFile(b64, outputPath + `${id}.png`);
+
+	// stitch the images/videos together using ffmpeg on command line
+	let command = "ffmpeg ";
+	for (item of images)  command += ` -i "${item}"`;
+	command += ' -filter_complex "';
+	for (var i=0; i < images.length - 1; i++) {
+	  if (i==0) command += `[${i}][${i+1}] overlay=0:0 [v${i+1}];`;
+	  else if (i == images.length -2) command += `[v${i}][${i+1}] overlay=0:0`;
+	  else command += `[v${i}][${i+1}] overlay=0:0 [v${i+1}];`;
+	}
+	command += `" ${outputPath}${id}.mp4 -y`;
+	execSync(command, (err, stdout, stderr) => {
+  	  if (err) {
+            console.error(command);
+	    console.error(err);
+ 	    console.error(stderr);
+    	    process.exit(1);
+  	  }
+	});
         images = [];
         id++;
       }
