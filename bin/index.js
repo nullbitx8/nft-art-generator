@@ -400,6 +400,7 @@ async function generateImages() {
         seen.push(images);
 
 	// stitch the images/videos together using ffmpeg on command line
+	// prepare command
 	let command = "ffmpeg ";
 	for (item of images)  command += ` -i "${item}"`;
 	command += ' -filter_complex "';
@@ -409,6 +410,8 @@ async function generateImages() {
 	  else command += `[v${i}][${i+1}] overlay=0:0 [v${i+1}];`;
 	}
 	command += `" ${outputPath}${id}.mp4 -y`;
+
+        // execute command
 	execSync(command, (err, stdout, stderr) => {
   	  if (err) {
             console.error(command);
@@ -429,8 +432,29 @@ async function generateImages() {
         );
       });
       generateMetadataObject(id, images);
-      const b64 = await mergeImages(images, { Canvas: Canvas, Image: Image });
-      await ImageDataURI.outputFile(b64, outputPath + `${id}.png`);
+
+      // stitch the images/videos together using ffmpeg on command line
+      // prepare command
+      let command = "ffmpeg ";
+      for (item of images)  command += ` -i "${item}"`;
+      command += ' -filter_complex "';
+      for (var i=0; i < images.length - 1; i++) {
+        if (i==0) command += `[${i}][${i+1}] overlay=0:0 [v${i+1}];`;
+	else if (i == images.length -2) command += `[v${i}][${i+1}] overlay=0:0`;
+	else command += `[v${i}][${i+1}] overlay=0:0 [v${i+1}];`;
+      }
+      command += `" ${outputPath}${id}.mp4 -y`;
+      
+      // execute command
+      execSync(command, (err, stdout, stderr) => {
+        if (err) {
+          console.error(command);
+	  console.error(err);
+ 	  console.error(stderr);
+    	  process.exit(1);
+  	}
+      });
+
       images = [];
       id++;
     }
